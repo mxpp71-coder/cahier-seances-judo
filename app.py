@@ -60,6 +60,29 @@ def save_df(df: pd.DataFrame):
         df2["date"] = pd.to_datetime(df2["date"], errors="coerce").dt.strftime("%Y-%m-%d")
     ws.append_rows(df2.fillna("").astype(str).values.tolist())
     load_df.clear()
+# ---------- Helpers pour éditer une séance ----------
+def _open_ws_seances():
+    c = gs_client()
+    sh = c.open(SHEET_NAME)  # on ouvre par NOM (comme ton app Judo actuelle)
+    return sh.worksheet(WORKSHEET)
+
+def _a1_col_letters(n):
+    # 1 -> A, 26 -> Z, 27 -> AA ... (au cas où tu ajoutes des colonnes un jour)
+    s = ""
+    while n > 0:
+        n, r = divmod(n - 1, 26)
+        s = chr(65 + r) + s
+    return s
+
+def _find_row_by_id(ws, session_id):
+    # cherche l'ID uniquement dans la 1re colonne (A), où l'entête est "id"
+    col = ws.col_values(1)  # 1 = colonne A
+    for i, v in enumerate(col, start=1):
+        if i == 1:
+            continue  # ligne d'entête
+        if str(v).strip() == str(session_id).strip():
+            return i
+    return None
 
 def next_id(df: pd.DataFrame) -> int:
     return int(df["id"].max() + 1) if not df.empty else 1
@@ -172,6 +195,92 @@ with tab_consult:
     show = dff[["id","date","public","objectif","duree_min","effectif","rpe","tags"]].copy()
     show["date"] = pd.to_datetime(show["date"], errors="coerce").dt.strftime("%d/%m/%Y")
     st.dataframe(show, use_container_width=True, hide_index=True)
+# ----- Mode édition -----
+st.divider()
+st.subheader("✏️ Modifier une séance")
+
+if dff.empty:
+    st.caption("Aucune séance à éditer avec les filtres actuels.")
+else:
+    # menu pour choisir la séance (dans les résultats filtrés)
+    choix = dff.copy()
+    choix["label"] = choix.apply(
+        lambda r: f"{int(r['id'])} — {pd.to_datetime(r['date']).strftime('%d/%m/%Y')} — {r['public']}", axis=1
+    )
+    selected_id = st.selectbox(
+        "Choisis une séance",
+        options=choix["id"].tolist(),
+        format_func=lambda sid: choix.loc[choix["id"]==sid, "label"].values[0]
+    )
+
+    # récupérer la ligne complète dans le df global
+    row = df.loc[df["id"]==selected_id].iloc[0]
+
+    with st.form("edit_form", clear_on_submit=False):
+        c1, c2 = st.columns(2)
+        new_date   = c1.date_input("Date", value=pd.to_datetime(row["date"]).date(), format="DD/MM/YYYY")
+        # PUBLICS existe déjà plus haut dans ton app
+        try:
+            pub_index = PUBLICS.index(row["public"]) if pd.notna(row["public"]) else 0
+        except ValueError:
+            pub_index = 0
+        new_public = c2.selectbox("Public", PUBLICS, index=pub_index)
+
+        new_obj    = st.text_input("Objectifs (texte libre)", value=str(row.get("objectif","")))
+        new_tags   = st.text_input("Tags", value=str(row.get("tags","")))
+        c3, c4, c5 = st.columns(3)
+        new_duree    = c3.number_input("Durée (min)", min_value=15, max_value=180, value=int(row.get("duree_min",60)), step=5)
+        new_effectif = c4.number_input("Effectif", min_value=1, max_value=60, value=int(row.get("effectif",15)), step=1)
+        base_rpe = int(row.get("rpe",5)) if pd.notna(row.get("rpe",5)) else 5
+        new_rpe      = c5.slider("RPE (1–10)", 1, 10, base_rpe)
+
+        st.markdown("**Contenu**")
+        new_ech   = st.text_area("Échauffement", value=str(row.get("echauffement","")), height=100)
+        new_corps = st.text_area("Corps de séance", value=str(row.get("corps","")), height=180)
+        new_ret   = st.text_area("Retour au calme", value=str(row.get("retour","")), height=100)
+        new_mat   = st.text_area("Matériel", value=str(row.get("materiel","")), height=70)
+        new_bilan = st.text_area("Bilan", value=str(row.get("bilan","")), height=100)
+        new_auteur= st.text_input("Auteur", value=str(row.get("auteur","")))
+
+        submitted_edit = st.form_submit_button("💾 Enregistrer les modifications")
+
+        if submitted_edit:
+            # 1) recalcul saison (fonction to_season déjà définie dans ton app)
+            new_saison = to_season(new_date)
+
+            # 2) reconstruire la ligne dans l'ordre exact de COLUMNS
+            updated = {
+                "id": int(selected_id),
+                "date": pd.to_datetime(new_date).strftime("%Y-%m-%d"),
+                "saison": new_saison,
+                "public": new_public,
+                "objectif": new_obj.strip(),
+                "tags": new_tags.strip(),
+                "duree_min": int(new_duree),
+                "echauffement": new_ech.strip(),
+                "corps": new_corps.strip(),
+                "retour": new_ret.strip(),
+                "materiel": new_mat.strip(),
+                "bilan": new_bilan.strip(),
+                "effectif": int(new_effectif),
+                "rpe": int(new_rpe),
+                "auteur": new_auteur.strip(),
+            }
+
+            # 3) écrire dans Google Sheets à la bonne ligne
+            ws = _open_ws_seances()
+            row_idx = _find_row_by_id(ws, selected_id)
+            if row_idx is None:
+                st.error("Séance introuvable dans Google Sheets.")
+            else:
+                end_col = _a1_col_letters(len(COLUMNS))
+                a1_range = f"A{row_idx}:{end_col}{row_idx}"
+                ws.update(a1_range, [[updated.get(k,"") for k in COLUMNS]])
+
+                # 4) refresh
+                load_df.clear()
+                st.success("Modifications enregistrées ✅")
+                st.experimental_rerun()
 
     st.markdown("### Détails des séances")
     for _, row in dff.iterrows():
