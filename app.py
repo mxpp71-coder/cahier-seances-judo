@@ -281,7 +281,7 @@ else:
                 # 4) refresh
                 load_df.clear()
                 st.success("Modifications enregistrées ✅")
-                st.experimental_rerun()
+                st.rerun()
 
     st.markdown("### Détails des séances")
     for _, row in dff.iterrows():
@@ -317,4 +317,5 @@ else:
     )
 
 st.caption("Données stockées dans Google Sheets. Partage l’URL de l’app pour y accéder depuis n’importe où (pense au mot de passe).")
+
 
