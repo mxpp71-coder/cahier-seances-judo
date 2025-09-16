@@ -1,3 +1,4 @@
+# patch ui edition
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -316,3 +317,4 @@ else:
     )
 
 st.caption("Données stockées dans Google Sheets. Partage l’URL de l’app pour y accéder depuis n’importe où (pense au mot de passe).")
+
