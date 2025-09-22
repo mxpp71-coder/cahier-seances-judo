@@ -1,13 +1,13 @@
-# ========= JUDO APP (propre) =========
-import streamlit as st
-import pandas as pd
-from datetime import date, datetime
+# ========= JUDO APP — version propre =========
 import io
+from datetime import date, datetime
 
 import gspread
+import pandas as pd
+import streamlit as st
 from google.oauth2.service_account import Credentials
 
-# --- Page config + PWA bits ---
+# --- Page config + PWA (icônes/manifest) ---
 st.set_page_config(
     page_title="Cahier de Séances Judo",
     page_icon="icon-512.png",
@@ -24,14 +24,14 @@ st.markdown(
 
 # --- Secrets (Sheets) ---
 SHEET_NAME = st.secrets["gsheets"]["sheet_name"]
-WORKSHEET  = st.secrets["gsheets"]["worksheet"]
+WORKSHEET = st.secrets["gsheets"]["worksheet"]
 
-# --- Auth simple ---
+# --- Auth simple (mot de passe) ---
 pwd = st.text_input("Mot de passe", type="password", key="app_pwd")
 if pwd != st.secrets.get("APP_PASSWORD", ""):
     st.stop()
 
-# --- Google Sheets client (need Drive scope for open by name) ---
+# --- Google Sheets client (Drive scope requis pour open by name) ---
 def gs_client():
     creds = Credentials.from_service_account_info(
         st.secrets["gcp_service_account"],
@@ -42,13 +42,27 @@ def gs_client():
     )
     return gspread.authorize(creds)
 
-# --- Utils ---
+# --- Constantes & utils ---
 COLUMNS = [
-    "id","date","saison","public","objectif","tags","duree_min",
-    "echauffement","corps","retour","materiel","bilan","effectif","rpe","auteur"
+    "id",
+    "date",
+    "saison",
+    "public",
+    "objectif",
+    "tags",
+    "duree_min",
+    "echauffement",
+    "corps",
+    "retour",
+    "materiel",
+    "bilan",
+    "effectif",
+    "rpe",
+    "auteur",
 ]
 
 def to_season(d: date) -> str:
+    """Saison sportive: avant juillet => (Y-1)-Y, sinon Y-(Y+1)"""
     return f"{d.year-1}-{d.year}" if d.month < 7 else f"{d.year}-{d.year+1}"
 
 @st.cache_data(ttl=10)
@@ -66,7 +80,7 @@ def load_df() -> pd.DataFrame:
         df["date"] = pd.to_datetime(df["date"], errors="coerce")
     return df
 
-def save_df(df: pd.DataFrame):
+def save_df(df: pd.DataFrame) -> None:
     c = gs_client()
     sh = c.open(SHEET_NAME)
     ws = sh.worksheet(WORKSHEET)
@@ -74,7 +88,9 @@ def save_df(df: pd.DataFrame):
     ws.append_row(COLUMNS)
     df2 = df.copy()
     if "date" in df2.columns:
-        df2["date"] = pd.to_datetime(df2["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+        df2["date"] = (
+            pd.to_datetime(df2["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+        )
     ws.append_rows(df2.fillna("").astype(str).values.tolist())
     load_df.clear()
 
@@ -88,6 +104,7 @@ def _open_ws_seances():
     return sh.worksheet(WORKSHEET)
 
 def _a1_col_letters(n: int) -> str:
+    # 1->A, 26->Z, 27->AA...
     s = ""
     while n > 0:
         n, r = divmod(n - 1, 26)
@@ -98,59 +115,93 @@ def _find_row_by_id(ws, session_id) -> int | None:
     col = ws.col_values(1)  # Col A (id)
     for i, v in enumerate(col, start=1):
         if i == 1:
-            continue
+            continue  # entête
         if str(v).strip() == str(session_id).strip():
             return i
     return None
 
 # --- UI Constantes ---
 PUBLICS = [
-    "Baby Judo (4–5)", "Mini-poussins (6–7)", "Poussins (8–9)",
-    "Benjamins (10–11)", "Minimes (12–13)", "Cadets (14–15)",
-    "Juniors (16–20)", "Adultes", "Loisir", "Compétiteurs"
+    "Baby Judo (4–5)",
+    "Mini-poussins (6–7)",
+    "Poussins (8–9)",
+    "Benjamins (10–11)",
+    "Minimes (12–13)",
+    "Cadets (14–15)",
+    "Juniors (16–20)",
+    "Adultes",
+    "Loisir",
+    "Compétiteurs",
 ]
 OBJECTIFS_PRESETS = [
-    "Ukemi (chutes)", "Nage-waza", "Ne-waza", "Randori", "Kumi-kata",
-    "Coordination/jeux", "Prépa compét", "Rituels/étiquette", "Assouplissements"
+    "Ukemi (chutes)",
+    "Nage-waza",
+    "Ne-waza",
+    "Randori",
+    "Kumi-kata",
+    "Coordination/jeux",
+    "Prépa compét",
+    "Rituels/étiquette",
+    "Assouplissements",
 ]
 
 # --- UI ---
 st.title("🥋 Cahier de séances — Judo")
-st.caption("Note tes séances par date, public, objectifs, contenu et bilan. Filtre, édite et exporte pour suivre la saison.")
+st.caption(
+    "Note tes séances par date, public, objectifs, contenu et bilan. Filtre, édite et exporte pour suivre la saison."
+)
 
-tab_saisie, tab_consult = st.tabs(["➕ Nouvelle séance", "🔎 Consulter / Modifier / Exporter"])
+tab_saisie, tab_consult = st.tabs(
+    ["➕ Nouvelle séance", "🔎 Consulter / Modifier / Exporter"]
+)
 
 # ========== Onglet Saisie ==========
 with tab_saisie:
     df = load_df()
     st.subheader("Saisie")
-with st.form("form_seance", clear_on_submit=True):
-    c1, c2 = st.columns(2)
-    d = c1.date_input("Date", value=date.today(), format="DD/MM/YYYY", key="new_date")
-    public = c2.selectbox("Public", PUBLICS, index=2, key="new_public")
+    with st.form("form_seance", clear_on_submit=True):
+        c1, c2 = st.columns(2)
+        d = c1.date_input(
+            "Date", value=date.today(), format="DD/MM/YYYY", key="new_date"
+        )
+        public = c2.selectbox("Public", PUBLICS, index=2, key="new_public")
 
-    obj = st.multiselect("Objectifs (choix multiples)", OBJECTIFS_PRESETS, default=[], key="new_objectifs")
-    tags = st.text_input("Tags (virgules)", placeholder="ukemi, jeux, osaekomi…", key="new_tags")
+        obj = st.multiselect(
+            "Objectifs (choix multiples)",
+            OBJECTIFS_PRESETS,
+            default=[],
+            key="new_objectifs",
+        )
+        tags = st.text_input(
+            "Tags (virgules)", placeholder="ukemi, jeux, osaekomi…", key="new_tags"
+        )
 
-    c3, c4, c5 = st.columns([1,1,1])
-    duree = c3.number_input("Durée (min)", min_value=15, max_value=180, value=60, step=5, key="new_duree")
-    effectif = c4.number_input("Effectif", min_value=1, max_value=60, value=15, step=1, key="new_effectif")
-    rpe = c5.slider("Intensité perçue (RPE 1–10)", 1, 10, 5, key="new_rpe")
+        c3, c4, c5 = st.columns([1, 1, 1])
+        duree = c3.number_input(
+            "Durée (min)", min_value=15, max_value=180, value=60, step=5, key="new_duree"
+        )
+        effectif = c4.number_input(
+            "Effectif", min_value=1, max_value=60, value=15, step=1, key="new_effectif"
+        )
+        rpe = c5.slider("Intensité perçue (RPE 1–10)", 1, 10, 5, key="new_rpe")
 
-    st.markdown("**Contenu**")
-    echauffement = st.text_area("Échauffement", height=100, key="new_echauffement")
-    corps = st.text_area("Corps de séance", height=180, key="new_corps")
-    retour = st.text_area("Retour au calme", height=100, key="new_retour")
-    materiel = st.text_area("Matériel", height=70, key="new_materiel")
-    bilan = st.text_area("Bilan (ce qui a marché / à revoir)", height=100, key="new_bilan")
-    auteur = st.text_input("Auteur (optionnel)", value="", key="new_auteur")
+        st.markdown("**Contenu**")
+        echauffement = st.text_area("Échauffement", height=100, key="new_ech")
+        corps = st.text_area("Corps de séance", height=180, key="new_corps")
+        retour = st.text_area("Retour au calme", height=100, key="new_retour")
+        materiel = st.text_area("Matériel", height=70, key="new_mat")
+        bilan = st.text_area(
+            "Bilan (ce qui a marché / à revoir)", height=100, key="new_bilan"
+        )
+        auteur = st.text_input("Auteur (optionnel)", value="", key="new_auteur")
 
-
-submitted = st.form_submit_button("💾 Enregistrer la séance", use_container_width=True, key="btn_save_new")
+        submitted = st.form_submit_button(
+            "💾 Enregistrer la séance", key="btn_save_new"
+        )
         if submitted:
             row = {
                 "id": next_id(df),
-                "date": pd.to_datetime(d),
+                "date": pd.to_datetime(d).strftime("%Y-%m-%d"),
                 "saison": to_season(d),
                 "public": public,
                 "objectif": "; ".join(obj),
@@ -175,13 +226,20 @@ submitted = st.form_submit_button("💾 Enregistrer la séance", use_container_w
     df = load_df()
     if not df.empty:
         choices = df.sort_values("date", ascending=False).head(30)
-        label = choices.apply(lambda r: f"{r['date'].date()} — {r['public']} — {str(r['objectif'])[:40]}", axis=1)
-        idx = st.selectbox("Séances récentes", options=choices.index.tolist(),
-                   format_func=lambda i: label.loc[i], key="dup_select")
-if st.button("📋 Copier comme nouvelle (date du jour)", key="dup_btn"):
+        label = choices.apply(
+            lambda r: f"{pd.to_datetime(r['date']).date()} — {r['public']} — {str(r['objectif'])[:40]}",
+            axis=1,
+        )
+        idx = st.selectbox(
+            "Séances récentes",
+            options=choices.index.tolist(),
+            format_func=lambda i: label.loc[i],
+            key="dup_select",
+        )
+        if st.button("📋 Copier comme nouvelle (date du jour)", key="dup_btn"):
             base = choices.loc[idx].to_dict()
             base["id"] = next_id(df)
-            base["date"] = pd.to_datetime(date.today())
+            base["date"] = pd.to_datetime(date.today()).strftime("%Y-%m-%d")
             base["saison"] = to_season(date.today())
             df = pd.concat([df, pd.DataFrame([base])], ignore_index=True)
             save_df(df)
@@ -191,16 +249,22 @@ if st.button("📋 Copier comme nouvelle (date du jour)", key="dup_btn"):
 with tab_consult:
     df = load_df()
     if df.empty:
-        st.info("Aucune séance pour le moment. Ajoute-en depuis l’onglet **Nouvelle séance**.")
+        st.info(
+            "Aucune séance pour le moment. Ajoute-en depuis l’onglet **Nouvelle séance**."
+        )
         st.stop()
 
     st.subheader("Filtres")
     c1, c2, c3 = st.columns(3)
     saisons = sorted(df["saison"].dropna().unique())
-   saison_sel = c1.selectbox("Saison", saisons, index=len(saisons)-1 if saisons else 0, key="flt_saison")
+    saison_sel = c1.selectbox(
+        "Saison", saisons, index=len(saisons) - 1 if saisons else 0, key="flt_saison"
+    )
     publics = ["Tous"] + list(sorted(df["public"].dropna().unique()))
-   public_sel = c2.selectbox("Public", publics, index=0, key="flt_public")
-   mot_cle    = c3.text_input("Recherche mot-clé", placeholder="ukemi, o-goshi, jeu…", key="flt_keyword")
+    public_sel = c2.selectbox("Public", publics, index=0, key="flt_public")
+    mot_cle = c3.text_input(
+        "Recherche mot-clé", placeholder="ukemi, o-goshi, jeu…", key="flt_keyword"
+    )
 
     dff = df[df["saison"] == saison_sel].copy()
     if public_sel != "Tous":
@@ -212,9 +276,11 @@ with tab_consult:
     dff = dff.sort_values("date", ascending=False)
 
     st.subheader("Résultats")
-    show = dff[["id","date","public","objectif","duree_min","effectif","rpe","tags"]].copy()
+    show = dff[
+        ["id", "date", "public", "objectif", "duree_min", "effectif", "rpe", "tags"]
+    ].copy()
     show["date"] = pd.to_datetime(show["date"], errors="coerce").dt.strftime("%d/%m/%Y")
-    st.dataframe(show, use_container_width=True, hide_index=True)
+    st.dataframe(show, width="stretch", hide_index=True)
 
     # ----- Mode édition -----
     st.divider()
@@ -225,41 +291,83 @@ with tab_consult:
     else:
         choix = dff.copy()
         choix["label"] = choix.apply(
-            lambda r: f"{int(r['id'])} — {pd.to_datetime(r['date']).strftime('%d/%m/%Y')} — {r['public']}", axis=1
+            lambda r: f"{int(r['id'])} — {pd.to_datetime(r['date']).strftime('%d/%m/%Y')} — {r['public']}",
+            axis=1,
         )
-selected_id = st.selectbox(
-    "Choisis une séance",
-    options=choix["id"].tolist(),
-    format_func=lambda sid: choix.loc[choix["id"]==sid, "label"].values[0],
-    key="edit_select_id",
-)
+        selected_id = st.selectbox(
+            "Choisis une séance",
+            options=choix["id"].tolist(),
+            format_func=lambda sid: choix.loc[choix["id"] == sid, "label"].values[0],
+            key="edit_select_id",
+        )
 
-with st.form("edit_form", clear_on_submit=False):
-    c1, c2 = st.columns(2)
-    new_date   = c1.date_input("Date", value=pd.to_datetime(row["date"]).date(),
-                               format="DD/MM/YYYY", key="edit_date")
-    new_public = c2.selectbox("Public", PUBLICS, index=pub_index, key="edit_public")
+        row = df.loc[df["id"] == selected_id].iloc[0]
 
-    new_obj    = st.text_input("Objectifs (texte libre)", value=str(row.get("objectif","")), key="edit_obj")
-    new_tags   = st.text_input("Tags", value=str(row.get("tags","")), key="edit_tags")
-    c3, c4, c5 = st.columns(3)
-    new_duree    = c3.number_input("Durée (min)", min_value=15, max_value=180,
-                                   value=int(row.get("duree_min",60)), step=5, key="edit_duree")
-    new_effectif = c4.number_input("Effectif", min_value=1, max_value=60,
-                                   value=int(row.get("effectif",15)), step=1, key="edit_effectif")
-    new_rpe      = c5.slider("RPE (1–10)", 1, 10, base_rpe, key="edit_rpe")
+        with st.form("edit_form", clear_on_submit=False):
+            c1, c2 = st.columns(2)
+            new_date = c1.date_input(
+                "Date",
+                value=pd.to_datetime(row["date"]).date(),
+                format="DD/MM/YYYY",
+                key="edit_date",
+            )
+            try:
+                pub_index = PUBLICS.index(row["public"]) if pd.notna(row["public"]) else 0
+            except ValueError:
+                pub_index = 0
+            new_public = c2.selectbox(
+                "Public", PUBLICS, index=pub_index, key="edit_public"
+            )
 
-    st.markdown("**Contenu**")
-    new_ech   = st.text_area("Échauffement", value=str(row.get("echauffement","")), height=100, key="edit_ech")
-    new_corps = st.text_area("Corps de séance", value=str(row.get("corps","")), height=180, key="edit_corps")
-    new_ret   = st.text_area("Retour au calme", value=str(row.get("retour","")), height=100, key="edit_ret")
-    new_mat   = st.text_area("Matériel", value=str(row.get("materiel","")), height=70, key="edit_mat")
-    new_bilan = st.text_area("Bilan", value=str(row.get("bilan","")), height=100, key="edit_bilan")
-    new_auteur= st.text_input("Auteur", value=str(row.get("auteur","")), key="edit_auteur")
+            new_obj = st.text_input(
+                "Objectifs (texte libre)", value=str(row.get("objectif", "")), key="edit_obj"
+            )
+            new_tags = st.text_input(
+                "Tags", value=str(row.get("tags", "")), key="edit_tags"
+            )
+            c3, c4, c5 = st.columns(3)
+            new_duree = c3.number_input(
+                "Durée (min)",
+                min_value=15,
+                max_value=180,
+                value=int(row.get("duree_min", 60)),
+                step=5,
+                key="edit_duree",
+            )
+            new_effectif = c4.number_input(
+                "Effectif",
+                min_value=1,
+                max_value=60,
+                value=int(row.get("effectif", 15)),
+                step=1,
+                key="edit_effectif",
+            )
+            base_rpe = int(row.get("rpe", 5)) if pd.notna(row.get("rpe", 5)) else 5
+            new_rpe = c5.slider("RPE (1–10)", 1, 10, base_rpe, key="edit_rpe")
 
-    submitted_edit = st.form_submit_button("💾 Enregistrer les modifications", use_container_width=True, key="btn_save_edit")
+            st.markdown("**Contenu**")
+            new_ech = st.text_area(
+                "Échauffement", value=str(row.get("echauffement", "")), height=100, key="edit_ech"
+            )
+            new_corps = st.text_area(
+                "Corps de séance", value=str(row.get("corps", "")), height=180, key="edit_corps"
+            )
+            new_ret = st.text_area(
+                "Retour au calme", value=str(row.get("retour", "")), height=100, key="edit_ret"
+            )
+            new_mat = st.text_area(
+                "Matériel", value=str(row.get("materiel", "")), height=70, key="edit_mat"
+            )
+            new_bilan = st.text_area(
+                "Bilan", value=str(row.get("bilan", "")), height=100, key="edit_bilan"
+            )
+            new_auteur = st.text_input(
+                "Auteur", value=str(row.get("auteur", "")), key="edit_auteur"
+            )
 
-
+            submitted_edit = st.form_submit_button(
+                "💾 Enregistrer les modifications", key="btn_save_edit"
+            )
             if submitted_edit:
                 new_saison = to_season(new_date)
                 updated = {
@@ -287,7 +395,7 @@ with st.form("edit_form", clear_on_submit=False):
                 else:
                     end_col = _a1_col_letters(len(COLUMNS))
                     a1_range = f"A{row_idx}:{end_col}{row_idx}"
-                    ws.update(a1_range, [[updated.get(k,"") for k in COLUMNS]])
+                    ws.update(a1_range, [[updated.get(k, "") for k in COLUMNS]])
                     load_df.clear()
                     st.success("Modifications enregistrées ✅")
                     st.rerun()
@@ -299,7 +407,8 @@ with st.form("edit_form", clear_on_submit=False):
         "⬇️ Export CSV (filtres appliqués)",
         data=dff.to_csv(index=False).encode("utf-8"),
         file_name=f"seances_{saison_sel}.csv",
-        mime="text/csv"
+        mime="text/csv",
+        key="btn_export_csv",
     )
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
@@ -309,7 +418,9 @@ with st.form("edit_form", clear_on_submit=False):
         data=out.getvalue(),
         file_name=f"seances_{saison_sel}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        key="btn_export_xlsx",
     )
 
-st.caption("Données stockées dans Google Sheets. Partage l’URL de l’app pour y accéder depuis n’importe où (pense au mot de passe).")
-
+st.caption(
+    "Données stockées dans Google Sheets. Partage l’URL de l’app pour y accéder depuis n’importe où (pense au mot de passe)."
+)
