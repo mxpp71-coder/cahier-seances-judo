@@ -317,5 +317,10 @@ else:
     )
 
 st.caption("Données stockées dans Google Sheets. Partage l’URL de l’app pour y accéder depuis n’importe où (pense au mot de passe).")
+cd "C:\Users\...\Code\Cahier_seance_judo"
+git add app.py icon-512.png apple-touch-icon.png
+git commit -m "Judo: icônes mobile personnalisées"
+git push
+
 
 
