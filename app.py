@@ -5,7 +5,17 @@ from datetime import date
 import io
 
 # ============== CONFIG ==============
-st.set_page_config(page_title="Cahier de séances Judo", page_icon="🥋", layout="centered")
+st.set_page_config(
+    page_title="Cahier de Séances Judo",
+    page_icon="icon-512.png",   # <-- même nom que ton fichier à la racine
+    layout="wide"
+)
+
+st.markdown("""
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+""", unsafe_allow_html=True)
+
 SHEET_NAME = st.secrets["gsheets"]["sheet_name"]
 WORKSHEET  = st.secrets["gsheets"]["worksheet"]
 
@@ -317,6 +327,7 @@ else:
     )
 
 st.caption("Données stockées dans Google Sheets. Partage l’URL de l’app pour y accéder depuis n’importe où (pense au mot de passe).")
+
 
 
 
