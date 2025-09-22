@@ -1,5 +1,13 @@
+<<<<<<< HEAD
 streamlit>=1.36
 pandas>=2.2.3
 gspread>=6.0.0
 google-auth>=2.30.0
 xlsxwriter>=3.2.0
+=======
+streamlit>=1.36
+pandas>=2.2.3
+gspread>=6.0.0
+google-auth>=2.30.0
+xlsxwriter>=3.2.0
+>>>>>>> 0680554 (cahier seances v1)
