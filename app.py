@@ -1,11 +1,11 @@
-<<<<<<< HEAD
+ HEAD
 # patch ui edition
 import streamlit as st
 import pandas as pd
 from datetime import date
 import io
 
-# ============== CONFIG ==============
+#  CONFIG 
 st.set_page_config(
     page_title="Cahier de Séances Judo",
     page_icon="icon-512.png",   # <-- même nom que ton fichier à la racine
@@ -20,12 +20,12 @@ st.markdown("""
 SHEET_NAME = st.secrets["gsheets"]["sheet_name"]
 WORKSHEET  = st.secrets["gsheets"]["worksheet"]
 
-# ============== PASSWORD (simple) ==============
+#  PASSWORD (simple) 
 pwd = st.text_input("Mot de passe", type="password")
 if pwd != st.secrets.get("APP_PASSWORD", ""):
     st.stop()
 
-# ============== GOOGLE SHEETS CLIENT ==============
+#  GOOGLE SHEETS CLIENT 
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -39,7 +39,7 @@ def gs_client():
     )
     return gspread.authorize(creds)
 
-# ============== DATA ACCESS HELPERS ==============
+#  DATA ACCESS HELPERS 
 COLUMNS = ["id","date","saison","public","objectif","tags","duree_min",
            "echauffement","corps","retour","materiel","bilan","effectif","rpe","auteur"]
 
@@ -99,7 +99,7 @@ def _find_row_by_id(ws, session_id):
 def next_id(df: pd.DataFrame) -> int:
     return int(df["id"].max() + 1) if not df.empty else 1
 
-# ============== CONSTANTES UI ==============
+#  CONSTANTES UI 
 PUBLICS = [
     "Baby Judo (4–5)", "Mini-poussins (6–7)", "Poussins (8–9)",
     "Benjamins (10–11)", "Minimes (12–13)", "Cadets (14–15)",
@@ -110,7 +110,7 @@ OBJECTIFS_PRESETS = [
     "Coordination/jeux", "Prépa compét", "Rituels/étiquette", "Assouplissements"
 ]
 
-# ============== UI ==============
+#  UI 
 st.title("🥋 Cahier de séances — Judo")
 st.caption("Note tes séances par date, public, objectifs, contenu et bilan. Filtre et exporte pour suivre la saison.")
 
@@ -332,23 +332,24 @@ st.caption("Données stockées dans Google Sheets. Partage l’URL de l’app po
 
 
 
-=======
+
+
 import streamlit as st
 import pandas as pd
 from datetime import date
 import io
 
-# ============== CONFIG ==============
+#  CONFIG 
 st.set_page_config(page_title="Cahier de séances Judo", page_icon="🥋", layout="centered")
 SHEET_NAME = st.secrets["gsheets"]["sheet_name"]
 WORKSHEET  = st.secrets["gsheets"]["worksheet"]
 
-# ============== PASSWORD (simple) ==============
+#  PASSWORD (simple) 
 pwd = st.text_input("Mot de passe", type="password")
 if pwd != st.secrets.get("APP_PASSWORD", ""):
     st.stop()
 
-# ============== GOOGLE SHEETS CLIENT ==============
+#  GOOGLE SHEETS CLIENT 
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -362,7 +363,7 @@ def gs_client():
     )
     return gspread.authorize(creds)
 
-# ============== DATA ACCESS HELPERS ==============
+#  DATA ACCESS HELPERS 
 COLUMNS = ["id","date","saison","public","objectif","tags","duree_min",
            "echauffement","corps","retour","materiel","bilan","effectif","rpe","auteur"]
 
@@ -399,7 +400,7 @@ def save_df(df: pd.DataFrame):
 def next_id(df: pd.DataFrame) -> int:
     return int(df["id"].max() + 1) if not df.empty else 1
 
-# ============== CONSTANTES UI ==============
+#  CONSTANTES UI 
 PUBLICS = [
     "Baby Judo (4–5)", "Mini-poussins (6–7)", "Poussins (8–9)",
     "Benjamins (10–11)", "Minimes (12–13)", "Cadets (14–15)",
@@ -410,7 +411,7 @@ OBJECTIFS_PRESETS = [
     "Coordination/jeux", "Prépa compét", "Rituels/étiquette", "Assouplissements"
 ]
 
-# ============== UI ==============
+#  UI 
 st.title("🥋 Cahier de séances — Judo")
 st.caption("Note tes séances par date, public, objectifs, contenu et bilan. Filtre et exporte pour suivre la saison.")
 
@@ -542,4 +543,3 @@ with tab_consult:
     )
 
 st.caption("Données stockées dans Google Sheets. Partage l’URL de l’app pour y accéder depuis n’importe où (pense au mot de passe).")
->>>>>>> 0680554 (cahier seances v1)
