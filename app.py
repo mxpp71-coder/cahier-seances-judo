@@ -1,6 +1,10 @@
-
 import streamlit as st
+import pandas as pd
 from datetime import date, datetime
+import io
+
+import gspread
+from google.oauth2.service_account import Credentials
 
 st.set_page_config(
     page_title="Cahier de Séances Judo",
@@ -17,7 +21,22 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Mot de passe (si tu l'utilises)
+pwd = st.text_input("Mot de passe", type="password")
+if pwd != st.secrets.get("APP_PASSWORD", ""):
+    st.stop()
 
+# Client Google Sheets
+def gs_client():
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=["https://www.googleapis.com/auth/spreadsheets"],
+    )
+    return gspread.authorize(creds)
+
+# Petite utilité saison
+def to_season(d: date) -> str:
+    return f"{d.year-1}-{d.year}" if d.month < 7 else f"{d.year}-{d.year+1}"
 
 SHEET_NAME = st.secrets["gsheets"]["sheet_name"]
 WORKSHEET  = st.secrets["gsheets"]["worksheet"]
@@ -545,6 +564,7 @@ with tab_consult:
     )
 
 st.caption("Données stockées dans Google Sheets. Partage l’URL de l’app pour y accéder depuis n’importe où (pense au mot de passe).")
+
 
 
 
