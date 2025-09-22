@@ -27,7 +27,7 @@ SHEET_NAME = st.secrets["gsheets"]["sheet_name"]
 WORKSHEET  = st.secrets["gsheets"]["worksheet"]
 
 # --- Auth simple ---
-pwd = st.text_input("Mot de passe", type="password")
+pwd = st.text_input("Mot de passe", type="password", key="app_pwd")
 if pwd != st.secrets.get("APP_PASSWORD", ""):
     st.stop()
 
@@ -124,28 +124,29 @@ tab_saisie, tab_consult = st.tabs(["➕ Nouvelle séance", "🔎 Consulter / Mod
 with tab_saisie:
     df = load_df()
     st.subheader("Saisie")
-    with st.form("form_seance", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        d = c1.date_input("Date", value=date.today(), format="DD/MM/YYYY")
-        public = c2.selectbox("Public", PUBLICS, index=2)
+with st.form("form_seance", clear_on_submit=True):
+    c1, c2 = st.columns(2)
+    d = c1.date_input("Date", value=date.today(), format="DD/MM/YYYY", key="new_date")
+    public = c2.selectbox("Public", PUBLICS, index=2, key="new_public")
 
-        obj = st.multiselect("Objectifs (choix multiples)", OBJECTIFS_PRESETS, default=[])
-        tags = st.text_input("Tags (virgules)", placeholder="ukemi, jeux, osaekomi…")
+    obj = st.multiselect("Objectifs (choix multiples)", OBJECTIFS_PRESETS, default=[], key="new_objectifs")
+    tags = st.text_input("Tags (virgules)", placeholder="ukemi, jeux, osaekomi…", key="new_tags")
 
-        c3, c4, c5 = st.columns([1,1,1])
-        duree = c3.number_input("Durée (min)", min_value=15, max_value=180, value=60, step=5)
-        effectif = c4.number_input("Effectif", min_value=1, max_value=60, value=15, step=1)
-        rpe = c5.slider("Intensité perçue (RPE 1–10)", 1, 10, 5)
+    c3, c4, c5 = st.columns([1,1,1])
+    duree = c3.number_input("Durée (min)", min_value=15, max_value=180, value=60, step=5, key="new_duree")
+    effectif = c4.number_input("Effectif", min_value=1, max_value=60, value=15, step=1, key="new_effectif")
+    rpe = c5.slider("Intensité perçue (RPE 1–10)", 1, 10, 5, key="new_rpe")
 
-        st.markdown("**Contenu**")
-        echauffement = st.text_area("Échauffement", height=100)
-        corps = st.text_area("Corps de séance", height=180)
-        retour = st.text_area("Retour au calme", height=100)
-        materiel = st.text_area("Matériel", height=70)
-        bilan = st.text_area("Bilan (ce qui a marché / à revoir)", height=100)
-        auteur = st.text_input("Auteur (optionnel)", value="")
+    st.markdown("**Contenu**")
+    echauffement = st.text_area("Échauffement", height=100, key="new_echauffement")
+    corps = st.text_area("Corps de séance", height=180, key="new_corps")
+    retour = st.text_area("Retour au calme", height=100, key="new_retour")
+    materiel = st.text_area("Matériel", height=70, key="new_materiel")
+    bilan = st.text_area("Bilan (ce qui a marché / à revoir)", height=100, key="new_bilan")
+    auteur = st.text_input("Auteur (optionnel)", value="", key="new_auteur")
 
-        submitted = st.form_submit_button("💾 Enregistrer la séance")
+
+submitted = st.form_submit_button("💾 Enregistrer la séance", use_container_width=True, key="btn_save_new")
         if submitted:
             row = {
                 "id": next_id(df),
@@ -175,8 +176,9 @@ with tab_saisie:
     if not df.empty:
         choices = df.sort_values("date", ascending=False).head(30)
         label = choices.apply(lambda r: f"{r['date'].date()} — {r['public']} — {str(r['objectif'])[:40]}", axis=1)
-        idx = st.selectbox("Séances récentes", options=choices.index.tolist(), format_func=lambda i: label.loc[i])
-        if st.button("📋 Copier comme nouvelle (date du jour)"):
+        idx = st.selectbox("Séances récentes", options=choices.index.tolist(),
+                   format_func=lambda i: label.loc[i], key="dup_select")
+if st.button("📋 Copier comme nouvelle (date du jour)", key="dup_btn"):
             base = choices.loc[idx].to_dict()
             base["id"] = next_id(df)
             base["date"] = pd.to_datetime(date.today())
@@ -195,10 +197,10 @@ with tab_consult:
     st.subheader("Filtres")
     c1, c2, c3 = st.columns(3)
     saisons = sorted(df["saison"].dropna().unique())
-    saison_sel = c1.selectbox("Saison", saisons, index=len(saisons)-1 if saisons else 0)
+   saison_sel = c1.selectbox("Saison", saisons, index=len(saisons)-1 if saisons else 0, key="flt_saison")
     publics = ["Tous"] + list(sorted(df["public"].dropna().unique()))
-    public_sel = c2.selectbox("Public", publics, index=0)
-    mot_cle = c3.text_input("Recherche mot-clé", placeholder="ukemi, o-goshi, jeu…")
+   public_sel = c2.selectbox("Public", publics, index=0, key="flt_public")
+   mot_cle    = c3.text_input("Recherche mot-clé", placeholder="ukemi, o-goshi, jeu…", key="flt_keyword")
 
     dff = df[df["saison"] == saison_sel].copy()
     if public_sel != "Tous":
@@ -225,40 +227,38 @@ with tab_consult:
         choix["label"] = choix.apply(
             lambda r: f"{int(r['id'])} — {pd.to_datetime(r['date']).strftime('%d/%m/%Y')} — {r['public']}", axis=1
         )
-        selected_id = st.selectbox(
-            "Choisis une séance",
-            options=choix["id"].tolist(),
-            format_func=lambda sid: choix.loc[choix["id"]==sid, "label"].values[0]
-        )
+selected_id = st.selectbox(
+    "Choisis une séance",
+    options=choix["id"].tolist(),
+    format_func=lambda sid: choix.loc[choix["id"]==sid, "label"].values[0],
+    key="edit_select_id",
+)
 
-        row = df.loc[df["id"]==selected_id].iloc[0]
+with st.form("edit_form", clear_on_submit=False):
+    c1, c2 = st.columns(2)
+    new_date   = c1.date_input("Date", value=pd.to_datetime(row["date"]).date(),
+                               format="DD/MM/YYYY", key="edit_date")
+    new_public = c2.selectbox("Public", PUBLICS, index=pub_index, key="edit_public")
 
-        with st.form("edit_form", clear_on_submit=False):
-            c1, c2 = st.columns(2)
-            new_date   = c1.date_input("Date", value=pd.to_datetime(row["date"]).date(), format="DD/MM/YYYY")
-            try:
-                pub_index = PUBLICS.index(row["public"]) if pd.notna(row["public"]) else 0
-            except ValueError:
-                pub_index = 0
-            new_public = c2.selectbox("Public", PUBLICS, index=pub_index)
+    new_obj    = st.text_input("Objectifs (texte libre)", value=str(row.get("objectif","")), key="edit_obj")
+    new_tags   = st.text_input("Tags", value=str(row.get("tags","")), key="edit_tags")
+    c3, c4, c5 = st.columns(3)
+    new_duree    = c3.number_input("Durée (min)", min_value=15, max_value=180,
+                                   value=int(row.get("duree_min",60)), step=5, key="edit_duree")
+    new_effectif = c4.number_input("Effectif", min_value=1, max_value=60,
+                                   value=int(row.get("effectif",15)), step=1, key="edit_effectif")
+    new_rpe      = c5.slider("RPE (1–10)", 1, 10, base_rpe, key="edit_rpe")
 
-            new_obj    = st.text_input("Objectifs (texte libre)", value=str(row.get("objectif","")))
-            new_tags   = st.text_input("Tags", value=str(row.get("tags","")))
-            c3, c4, c5 = st.columns(3)
-            new_duree    = c3.number_input("Durée (min)", min_value=15, max_value=180, value=int(row.get("duree_min",60)), step=5)
-            new_effectif = c4.number_input("Effectif", min_value=1, max_value=60, value=int(row.get("effectif",15)), step=1)
-            base_rpe     = int(row.get("rpe",5)) if pd.notna(row.get("rpe",5)) else 5
-            new_rpe      = c5.slider("RPE (1–10)", 1, 10, base_rpe)
+    st.markdown("**Contenu**")
+    new_ech   = st.text_area("Échauffement", value=str(row.get("echauffement","")), height=100, key="edit_ech")
+    new_corps = st.text_area("Corps de séance", value=str(row.get("corps","")), height=180, key="edit_corps")
+    new_ret   = st.text_area("Retour au calme", value=str(row.get("retour","")), height=100, key="edit_ret")
+    new_mat   = st.text_area("Matériel", value=str(row.get("materiel","")), height=70, key="edit_mat")
+    new_bilan = st.text_area("Bilan", value=str(row.get("bilan","")), height=100, key="edit_bilan")
+    new_auteur= st.text_input("Auteur", value=str(row.get("auteur","")), key="edit_auteur")
 
-            st.markdown("**Contenu**")
-            new_ech   = st.text_area("Échauffement", value=str(row.get("echauffement","")), height=100)
-            new_corps = st.text_area("Corps de séance", value=str(row.get("corps","")), height=180)
-            new_ret   = st.text_area("Retour au calme", value=str(row.get("retour","")), height=100)
-            new_mat   = st.text_area("Matériel", value=str(row.get("materiel","")), height=70)
-            new_bilan = st.text_area("Bilan", value=str(row.get("bilan","")), height=100)
-            new_auteur= st.text_input("Auteur", value=str(row.get("auteur","")))
+    submitted_edit = st.form_submit_button("💾 Enregistrer les modifications", use_container_width=True, key="btn_save_edit")
 
-            submitted_edit = st.form_submit_button("💾 Enregistrer les modifications")
 
             if submitted_edit:
                 new_saison = to_season(new_date)
@@ -312,3 +312,4 @@ with tab_consult:
     )
 
 st.caption("Données stockées dans Google Sheets. Partage l’URL de l’app pour y accéder depuis n’importe où (pense au mot de passe).")
+
