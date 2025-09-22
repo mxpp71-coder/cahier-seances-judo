@@ -1,17 +1,21 @@
 
-# patch ui edition
 import streamlit as st
-import pandas as pd
-from datetime import date
-import io
 
-#  CONFIG 
 st.set_page_config(
-st.markdown("""
+    page_title="Cahier de Séances Judo",
+    page_icon="icon-512.png",
+    layout="wide",
+)
+
+st.markdown(
+    """
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
-""", unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True,
+)
+
 
 
 SHEET_NAME = st.secrets["gsheets"]["sheet_name"]
@@ -540,5 +544,6 @@ with tab_consult:
     )
 
 st.caption("Données stockées dans Google Sheets. Partage l’URL de l’app pour y accéder depuis n’importe où (pense au mot de passe).")
+
 
 
