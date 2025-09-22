@@ -1,5 +1,6 @@
 
 import streamlit as st
+from datetime import date, datetime
 
 st.set_page_config(
     page_title="Cahier de Séances Judo",
@@ -544,6 +545,7 @@ with tab_consult:
     )
 
 st.caption("Données stockées dans Google Sheets. Partage l’URL de l’app pour y accéder depuis n’importe où (pense au mot de passe).")
+
 
 
 
